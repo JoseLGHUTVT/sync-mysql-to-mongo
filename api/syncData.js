@@ -2,7 +2,7 @@ import mysql from 'mysql2/promise'; // Usar 'mysql2/promise' para trabajar con p
 import { MongoClient } from 'mongodb';
 
 // Configuración de MySQL usando variables de entorno
-const mysqlConnection = await mysql.createPool({
+const mysqlConnection = mysql.createPool({
   host: process.env.MYSQL_HOST,
   port: process.env.MYSQL_PORT,
   user: process.env.MYSQL_USER,
@@ -39,10 +39,14 @@ async function syncData(req, res) {
     res.status(200).json({ message: 'Sincronización completa' });
   } catch (err) {
     console.error('Error al conectar a MongoDB o MySQL:', err);
-    res.status(500).json({ error: 'Error al conectar a MongoDB o MySQL' });
+    res.status(500).json({ error: `Error al conectar a MongoDB o MySQL: ${err.message}` });
   } finally {
     // Cerrar la conexión a MongoDB
-    await mongoClient.close();
+    try {
+      await mongoClient.close();
+    } catch (closeErr) {
+      console.error('Error al cerrar la conexión de MongoDB:', closeErr);
+    }
   }
 }
 
@@ -53,7 +57,6 @@ async function syncTableToMongo(mysqlTable, mongoCollection, db) {
     const collection = db.collection(mongoCollection);
 
     for (let row of results) {
-      // Construir el filtro basado en la tabla
       let filter = {};
       if (row.id_banda) filter = { id_banda: row.id_banda };
       if (row.id_cliente) filter = { id_cliente: row.id_cliente };
