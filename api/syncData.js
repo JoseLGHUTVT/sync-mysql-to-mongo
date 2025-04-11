@@ -1,4 +1,3 @@
-
 import mysql from 'mysql2/promise'; // Usar 'mysql2/promise' para trabajar con promesas
 import { MongoClient } from 'mongodb';
 
@@ -60,15 +59,17 @@ async function syncTableToMongo(mysqlTable, mongoCollection, db) {
   try {
     console.log(`Iniciando sincronización de la tabla ${mysqlTable} a la colección ${mongoCollection}...`);
     const [results] = await mysqlConnection.execute(`SELECT * FROM ${mysqlTable}`);
+    console.log(`Recuperados ${results.length} registros de MySQL`);
     const collection = db.collection(mongoCollection);
 
     // Sincronización en lotes (batch)
-    const batchSize = 100;  // Definir un tamaño de lote para evitar sobrecargar el sistema
+    const batchSize = 50;  // Tamaño de lote reducido para probar
     let batch = [];
-    
+
     for (let i = 0; i < results.length; i++) {
       const row = results[i];
-      
+      console.log(`Sincronizando registro con ID: ${row.id_registros}`);
+
       // Construir un filtro combinando todas las claves relevantes
       let filter = {};
       if (row.id_banda) filter.id_banda = row.id_banda;
@@ -87,6 +88,7 @@ async function syncTableToMongo(mysqlTable, mongoCollection, db) {
 
       // Si el lote alcanza el tamaño máximo, ejecutamos las operaciones y limpiamos el lote
       if (batch.length >= batchSize || i === results.length - 1) {
+        console.log(`Ejecutando sincronización de lote...`);
         await Promise.all(batch);
         batch = [];  // Limpiar el lote
         console.log(`Lote sincronizado para ${mongoCollection}`);
@@ -95,7 +97,7 @@ async function syncTableToMongo(mysqlTable, mongoCollection, db) {
 
     console.log(`Sincronización completa para ${mongoCollection}`);
   } catch (err) {
-    console.error(`Error al consultar ${mysqlTable} o actualizar en MongoDB:`, err);
+    console.error(`Error al consultar ${mysqlTable} o actualizar en MongoDB: ${err}`);
   }
 }
 
