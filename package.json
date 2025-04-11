@@ -1,16 +1,15 @@
 {
   "name": "sync-mysql-to-mongo",
   "version": "1.0.0",
+  "description": "Proyecto para sincronizar datos desde MySQL a MongoDB",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node api/index.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
-    "mongodb": "^6.15.0",
-    "mysql2": "^3.14.0"
-  }
+    "mysql2": "^3.14.0",
+    "mongodb": "^6.15.0"
+  },
+  "author": "",
+  "license": "ISC"
 }
