@@ -1,0 +1,26 @@
+# Node.js dependencies
+node_modules/
+
+# Variables de entorno
+.env
+
+# Archivos de log
+*.log
+
+# Archivos de configuración de IDE
+.vscode/
+.idea/
+
+# Archivos temporales de sistemas operativos
+.DS_Store
+Thumbs.db
+
+# Archivos de construcción
+dist/
+build/
+
+# Archivos de prueba (si usas frameworks de pruebas)
+coverage/
+
+# Configuraciones de Vercel
+.vercel/
