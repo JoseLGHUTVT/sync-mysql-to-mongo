@@ -57,15 +57,16 @@ async function syncTableToMongo(mysqlTable, mongoCollection, db) {
     const collection = db.collection(mongoCollection);
 
     for (let row of results) {
+      // Construir un filtro combinando todas las claves relevantes
       let filter = {};
-      if (row.id_banda) filter = { id_banda: row.id_banda };
-      if (row.id_cliente) filter = { id_cliente: row.id_cliente };
-      if (row.id_control) filter = { id_control: row.id_control };
-      if (row.id_registros) filter = { id_registros: row.id_registros };
-      if (row.id_relaciones) filter = { id_relaciones: row.id_relaciones };
-      if (row.id_sensor) filter = { id_sensor: row.id_sensor };
-      if (row.id_rol) filter = { id_rol: row.id_rol };
-      if (row.id_usuario) filter = { id_usuario: row.id_usuario };
+      if (row.id_banda) filter.id_banda = row.id_banda;
+      if (row.id_cliente) filter.id_cliente = row.id_cliente;
+      if (row.id_control) filter.id_control = row.id_control;
+      if (row.id_registros) filter.id_registros = row.id_registros;
+      if (row.id_relaciones) filter.id_relaciones = row.id_relaciones;
+      if (row.id_sensor) filter.id_sensor = row.id_sensor;
+      if (row.id_rol) filter.id_rol = row.id_rol;
+      if (row.id_usuario) filter.id_usuario = row.id_usuario;
 
       const update = { $set: row };
 
