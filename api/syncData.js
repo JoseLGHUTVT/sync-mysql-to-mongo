@@ -1,3 +1,4 @@
+
 import mysql from 'mysql2/promise'; // Usar 'mysql2/promise' para trabajar con promesas
 import { MongoClient } from 'mongodb';
 
@@ -17,7 +18,7 @@ const mysqlConnection = mysql.createPool({
 const mongoURI = process.env.MONGODB_URI;
 const mongoClient = new MongoClient(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true });
 
-// Función para sincronizar los datos de MySQL a MongoDB
+// Función para sincronizar los datos de MySQL a MongoDB y viceversa
 async function syncData(req, res) {
   let db;
   try {
@@ -28,7 +29,14 @@ async function syncData(req, res) {
 
     // Sincronización de las colecciones con las tablas de MySQL
     console.log('Iniciando la sincronización...');
+    await syncTableToMongo('tb_banda', 'bandas', db);
+    await syncTableToMongo('tb_clientes', 'clientes', db);
+    await syncTableToMongo('tb_controladores', 'controladores', db);
     await syncTableToMongo('tb_registros', 'registros', db);
+    await syncTableToMongo('tb_relaciones', 'relaciones', db);
+    await syncTableToMongo('tb_roles', 'roles', db);
+    await syncTableToMongo('tb_sensor', 'sensores', db);
+    await syncTableToMongo('tb_usuarios', 'usuarios', db);
 
     // Responder al cliente
     console.log('Sincronización completa');
@@ -57,20 +65,25 @@ async function syncTableToMongo(mysqlTable, mongoCollection, db) {
     // Sincronización en lotes (batch)
     const batchSize = 100;  // Definir un tamaño de lote para evitar sobrecargar el sistema
     let batch = [];
-
+    
     for (let i = 0; i < results.length; i++) {
       const row = results[i];
       
-      // Construir un documento con los campos que deseas almacenar en MongoDB
-      let document = {
-        id_: row.id,          // Asignar correctamente el 'id_' desde MySQL
-        object: row.object,    // 'object' como un campo normal
-        fecha: row.fecha,      // 'fecha' como un campo normal
-        hora: row.hora        // 'hora' como un campo normal
-      };
+      // Construir un filtro combinando todas las claves relevantes
+      let filter = {};
+      if (row.id_banda) filter.id_banda = row.id_banda;
+      if (row.id_cliente) filter.id_cliente = row.id_cliente;
+      if (row.id_control) filter.id_control = row.id_control;
+      if (row.id_registros) filter.id_registros = row.id_registros;
+      if (row.id_relaciones) filter.id_relaciones = row.id_relaciones;
+      if (row.id_sensor) filter.id_sensor = row.id_sensor;
+      if (row.id_rol) filter.id_rol = row.id_rol;
+      if (row.id_usuario) filter.id_usuario = row.id_usuario;
 
-      // Agregar el documento al lote
-      batch.push(collection.updateOne({ id_: row.id }, { $set: document }, { upsert: true }));
+      const update = { $set: row };
+
+      // Insertar o actualizar documento en MongoDB (usando lotes)
+      batch.push(collection.updateOne(filter, update, { upsert: true }));
 
       // Si el lote alcanza el tamaño máximo, ejecutamos las operaciones y limpiamos el lote
       if (batch.length >= batchSize || i === results.length - 1) {
