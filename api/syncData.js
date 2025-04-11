@@ -75,7 +75,9 @@ async function syncTableToMongo(mysqlTable, mongoCollection, db) {
       if (mysqlTable === 'tb_registros') {
         row.id_ = row.id;          // Renombramos 'id' a 'id_'
         delete row.id;             // Eliminamos el campo 'id' original
-        filter.id_ = row.id_;      // Usamos 'id_' como filtro para MongoDB
+
+        // Asignamos el campo 'id_' como _id en MongoDB para garantizar unicidad
+        filter._id = row.id_;      // Usamos '_id' como el identificador único para MongoDB
       } else {
         if (row.id_banda) filter.id_banda = row.id_banda;
         if (row.id_cliente) filter.id_cliente = row.id_cliente;
