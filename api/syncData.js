@@ -1,4 +1,4 @@
-import mysql from 'mysql2/promise'; // Usar 'mysql2/promise' para trabajar con promesas
+import mysql from 'mysql2/promise';
 import { MongoClient } from 'mongodb';
 
 // Configuración de MySQL usando variables de entorno
@@ -15,18 +15,19 @@ const mysqlConnection = mysql.createPool({
 
 // Configuración de MongoDB usando variables de entorno
 const mongoURI = process.env.MONGODB_URI;
-const mongoClient = new MongoClient(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true });
+const mongoClient = new MongoClient(mongoURI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+});
 
-// Función para sincronizar los datos de MySQL a MongoDB y viceversa
+// Función principal
 async function syncData(req, res) {
   let db;
   try {
-    // Conectar a MongoDB
     console.log('Conectando a MongoDB...');
     await mongoClient.connect();
     db = mongoClient.db();
 
-    // Sincronización de las colecciones con las tablas de MySQL
     console.log('Iniciando la sincronización...');
     await syncTableToMongo('tb_banda', 'bandas', db);
     await syncTableToMongo('tb_clientes', 'clientes', db);
@@ -37,14 +38,12 @@ async function syncData(req, res) {
     await syncTableToMongo('tb_sensor', 'sensores', db);
     await syncTableToMongo('tb_usuarios', 'usuarios', db);
 
-    // Responder al cliente
     console.log('Sincronización completa');
     res.status(200).json({ message: 'Sincronización completa' });
   } catch (err) {
     console.error('Error al conectar a MongoDB o MySQL:', err);
     res.status(500).json({ error: `Error al conectar a MongoDB o MySQL: ${err.message}` });
   } finally {
-    // Cerrar la conexión a MongoDB
     try {
       console.log('Cerrando conexión a MongoDB...');
       await mongoClient.close();
@@ -54,47 +53,51 @@ async function syncData(req, res) {
   }
 }
 
-// Función para sincronizar datos de una tabla de MySQL a una colección de MongoDB
+// Función auxiliar
 async function syncTableToMongo(mysqlTable, mongoCollection, db) {
   try {
-    console.log(`Iniciando sincronización de la tabla ${mysqlTable} a la colección ${mongoCollection}...`);
+    console.log(`Iniciando sincronización de ${mysqlTable} -> ${mongoCollection}`);
     const [results] = await mysqlConnection.execute(`SELECT * FROM ${mysqlTable}`);
     const collection = db.collection(mongoCollection);
 
-    // Sincronización en lotes (batch)
-    const batchSize = 100;  // Definir un tamaño de lote para evitar sobrecargar el sistema
+    const batchSize = 100;
     let batch = [];
-    
+
     for (let i = 0; i < results.length; i++) {
       const row = results[i];
-      
-      // Construir un filtro combinando todas las claves relevantes
       let filter = {};
-      if (row.id_banda) filter.id_banda = row.id_banda;
-      if (row.id_cliente) filter.id_cliente = row.id_cliente;
-      if (row.id_control) filter.id_control = row.id_control;
-      if (row.id_registros) filter.id_registros = row.id_registros;
-      if (row.id_relaciones) filter.id_relaciones = row.id_relaciones;
-      if (row.id_sensor) filter.id_sensor = row.id_sensor;
-      if (row.id_rol) filter.id_rol = row.id_rol;
-      if (row.id_usuario) filter.id_usuario = row.id_usuario;
+
+      // Asignar correctamente el filtro basado en el nombre de la tabla
+      if (mysqlTable === 'tb_registros') {
+        filter.id = row.id; // este es el campo correcto en tb_registros
+      } else {
+        if (row.id_banda) filter.id_banda = row.id_banda;
+        if (row.id_cliente) filter.id_cliente = row.id_cliente;
+        if (row.id_control) filter.id_control = row.id_control;
+        if (row.id_registros) filter.id_registros = row.id_registros;
+        if (row.id_relaciones) filter.id_relaciones = row.id_relaciones;
+        if (row.id_sensor) filter.id_sensor = row.id_sensor;
+        if (row.id_rol) filter.id_rol = row.id_rol;
+        if (row.id_usuario) filter.id_usuario = row.id_usuario;
+      }
 
       const update = { $set: row };
 
-      // Insertar o actualizar documento en MongoDB (usando lotes)
+      // Log para debug opcional
+      // console.log(`Actualizando ${mongoCollection}:`, filter);
+
       batch.push(collection.updateOne(filter, update, { upsert: true }));
 
-      // Si el lote alcanza el tamaño máximo, ejecutamos las operaciones y limpiamos el lote
       if (batch.length >= batchSize || i === results.length - 1) {
         await Promise.all(batch);
-        batch = [];  // Limpiar el lote
+        batch = [];
         console.log(`Lote sincronizado para ${mongoCollection}`);
       }
     }
 
     console.log(`Sincronización completa para ${mongoCollection}`);
   } catch (err) {
-    console.error(`Error al consultar ${mysqlTable} o actualizar en MongoDB:`, err);
+    console.error(`Error al procesar ${mysqlTable}:`, err);
   }
 }
 
