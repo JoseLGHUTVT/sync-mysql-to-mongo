@@ -22,10 +22,12 @@ async function syncData(req, res) {
   let db;
   try {
     // Conectar a MongoDB
+    console.log('Conectando a MongoDB...');
     await mongoClient.connect();
     db = mongoClient.db();
 
     // Sincronización de las colecciones con las tablas de MySQL
+    console.log('Iniciando la sincronización...');
     await syncTableToMongo('tb_banda', 'bandas', db);
     await syncTableToMongo('tb_clientes', 'clientes', db);
     await syncTableToMongo('tb_controladores', 'controladores', db);
@@ -36,6 +38,7 @@ async function syncData(req, res) {
     await syncTableToMongo('tb_usuarios', 'usuarios', db);
 
     // Responder al cliente
+    console.log('Sincronización completa');
     res.status(200).json({ message: 'Sincronización completa' });
   } catch (err) {
     console.error('Error al conectar a MongoDB o MySQL:', err);
@@ -43,6 +46,7 @@ async function syncData(req, res) {
   } finally {
     // Cerrar la conexión a MongoDB
     try {
+      console.log('Cerrando conexión a MongoDB...');
       await mongoClient.close();
     } catch (closeErr) {
       console.error('Error al cerrar la conexión de MongoDB:', closeErr);
@@ -53,10 +57,17 @@ async function syncData(req, res) {
 // Función para sincronizar datos de una tabla de MySQL a una colección de MongoDB
 async function syncTableToMongo(mysqlTable, mongoCollection, db) {
   try {
+    console.log(`Iniciando sincronización de la tabla ${mysqlTable} a la colección ${mongoCollection}...`);
     const [results] = await mysqlConnection.execute(`SELECT * FROM ${mysqlTable}`);
     const collection = db.collection(mongoCollection);
 
-    for (let row of results) {
+    // Sincronización en lotes (batch)
+    const batchSize = 100;  // Definir un tamaño de lote para evitar sobrecargar el sistema
+    let batch = [];
+    
+    for (let i = 0; i < results.length; i++) {
+      const row = results[i];
+      
       // Construir un filtro combinando todas las claves relevantes
       let filter = {};
       if (row.id_banda) filter.id_banda = row.id_banda;
@@ -70,8 +81,15 @@ async function syncTableToMongo(mysqlTable, mongoCollection, db) {
 
       const update = { $set: row };
 
-      // Insertar o actualizar documento en MongoDB
-      await collection.updateOne(filter, update, { upsert: true });
+      // Insertar o actualizar documento en MongoDB (usando lotes)
+      batch.push(collection.updateOne(filter, update, { upsert: true }));
+
+      // Si el lote alcanza el tamaño máximo, ejecutamos las operaciones y limpiamos el lote
+      if (batch.length >= batchSize || i === results.length - 1) {
+        await Promise.all(batch);
+        batch = [];  // Limpiar el lote
+        console.log(`Lote sincronizado para ${mongoCollection}`);
+      }
     }
 
     console.log(`Sincronización completa para ${mongoCollection}`);
