@@ -28,14 +28,7 @@ async function syncData(req, res) {
 
     // Sincronización de las colecciones con las tablas de MySQL
     console.log('Iniciando la sincronización...');
-    await syncTableToMongo('tb_banda', 'bandas', db);
-    await syncTableToMongo('tb_clientes', 'clientes', db);
-    await syncTableToMongo('tb_controladores', 'controladores', db);
     await syncTableToMongo('tb_registros', 'registros', db);
-    await syncTableToMongo('tb_relaciones', 'relaciones', db);
-    await syncTableToMongo('tb_roles', 'roles', db);
-    await syncTableToMongo('tb_sensor', 'sensores', db);
-    await syncTableToMongo('tb_usuarios', 'usuarios', db);
 
     // Responder al cliente
     console.log('Sincronización completa');
@@ -69,30 +62,12 @@ async function syncTableToMongo(mysqlTable, mongoCollection, db) {
       const row = results[i];
       
       // Construir un documento con los campos que deseas almacenar en MongoDB
-      let document = {};
-
-      // Para la tabla 'tb_registros', agregar directamente los campos que necesitas
-      if (mysqlTable === 'tb_registros') {
-        document.id_ = row.id;         // Asegurándonos de que 'id_' no esté vacío o nulo
-        document.object = row.object;   // 'object' como un campo normal
-        document.fecha = row.fecha;     // 'fecha' como un campo normal
-        document.hora = row.hora;       // 'hora' como un campo normal
-      } else {
-        // Para las demás tablas, simplemente pasamos todos los campos
-        if (row.id_banda) document.id_banda = row.id_banda;
-        if (row.id_cliente) document.id_cliente = row.id_cliente;
-        if (row.id_control) document.id_control = row.id_control;
-        if (row.id_registros) document.id_registros = row.id_registros;
-        if (row.id_relaciones) document.id_relaciones = row.id_relaciones;
-        if (row.id_sensor) document.id_sensor = row.id_sensor;
-        if (row.id_rol) document.id_rol = row.id_rol;
-        if (row.id_usuario) document.id_usuario = row.id_usuario;
-      }
-
-      // Asegurarse de que 'id_' no esté vacío
-      if (!document.id_) {
-        console.error(`El campo 'id_' es nulo o vacío para el registro con ID: ${row.id}`);
-      }
+      let document = {
+        id_: row.id,          // Asignar correctamente el 'id_' desde MySQL
+        object: row.object,    // 'object' como un campo normal
+        fecha: row.fecha,      // 'fecha' como un campo normal
+        hora: row.hora        // 'hora' como un campo normal
+      };
 
       // Agregar el documento al lote
       batch.push(collection.updateOne({ id_: row.id }, { $set: document }, { upsert: true }));
