@@ -17,7 +17,6 @@ const mysqlConnection = mysql.createPool({
 const mongoURI = process.env.MONGODB_URI;
 const mongoClient = new MongoClient(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true });
 
-// Función principal
 async function syncData(req, res) {
   let db;
   try {
@@ -29,7 +28,7 @@ async function syncData(req, res) {
     await syncTableToMongo('tb_banda', 'bandas', db);
     await syncTableToMongo('tb_clientes', 'clientes', db);
     await syncTableToMongo('tb_controladores', 'controladores', db);
-    await syncTableToMongo('tb_registros', 'registros', db); // <- Aquí aplica el mapeo especial
+    await syncTableToMongo('tb_registros', 'registros', db); // ✔️ Con mapeo especial
     await syncTableToMongo('tb_relaciones', 'relaciones', db);
     await syncTableToMongo('tb_roles', 'roles', db);
     await syncTableToMongo('tb_sensor', 'sensores', db);
@@ -50,7 +49,6 @@ async function syncData(req, res) {
   }
 }
 
-// Función para sincronizar tabla -> colección
 async function syncTableToMongo(mysqlTable, mongoCollection, db) {
   try {
     console.log(`Sincronizando ${mysqlTable} → ${mongoCollection}...`);
@@ -63,17 +61,17 @@ async function syncTableToMongo(mysqlTable, mongoCollection, db) {
     for (let i = 0; i < results.length; i++) {
       const row = { ...results[i] };
 
-      // Mapeo especial si la tabla es tb_registros
+      // ✔️ Mapeo especial para la tabla tb_registros
       if (mysqlTable === 'tb_registros') {
         row.id_registros = row.id_;
-        delete row.id_; // Opcional: elimina el campo antiguo
+        delete row.id_; // opcional, elimina id_ si no lo necesitas
       }
 
       let filter = {};
       if (row.id_banda) filter.id_banda = row.id_banda;
       if (row.id_cliente) filter.id_cliente = row.id_cliente;
       if (row.id_control) filter.id_control = row.id_control;
-      if ('id_registros' in row) filter.id_registros = row.id_registros;
+      if ('id_registros' in row) filter.id_registros = row.id_registros; // ✔️ más robusto
       if (row.id_relaciones) filter.id_relaciones = row.id_relaciones;
       if (row.id_sensor) filter.id_sensor = row.id_sensor;
       if (row.id_rol) filter.id_rol = row.id_rol;
@@ -83,15 +81,15 @@ async function syncTableToMongo(mysqlTable, mongoCollection, db) {
       batch.push(collection.updateOne(filter, update, { upsert: true }));
 
       if (batch.length >= batchSize || i === results.length - 1) {
+        console.log(`Insertando lote de ${batch.length} en ${mongoCollection}`);
         await Promise.all(batch);
         batch = [];
-        console.log(`Lote sincronizado para ${mongoCollection}`);
       }
     }
 
-    console.log(`Sincronización completa para ${mongoCollection}`);
+    console.log(`✔️ Sincronización completa para ${mongoCollection}`);
   } catch (err) {
-    console.error(`Error al sincronizar ${mysqlTable}:`, err);
+    console.error(`❌ Error al sincronizar ${mysqlTable}:`, err);
   }
 }
 
