@@ -73,7 +73,7 @@ async function syncTableToMongo(mysqlTable, mongoCollection, db) {
 
       // Para la tabla 'tb_registros', agregar directamente los campos que necesitas
       if (mysqlTable === 'tb_registros') {
-        document.id_ = row.id;         // 'id_' como un campo normal
+        document.id_ = row.id;         // Asegurándonos de que 'id_' no esté vacío o nulo
         document.object = row.object;   // 'object' como un campo normal
         document.fecha = row.fecha;     // 'fecha' como un campo normal
         document.hora = row.hora;       // 'hora' como un campo normal
@@ -87,6 +87,11 @@ async function syncTableToMongo(mysqlTable, mongoCollection, db) {
         if (row.id_sensor) document.id_sensor = row.id_sensor;
         if (row.id_rol) document.id_rol = row.id_rol;
         if (row.id_usuario) document.id_usuario = row.id_usuario;
+      }
+
+      // Asegurarse de que 'id_' no esté vacío
+      if (!document.id_) {
+        console.error(`El campo 'id_' es nulo o vacío para el registro con ID: ${row.id}`);
       }
 
       // Agregar el documento al lote
