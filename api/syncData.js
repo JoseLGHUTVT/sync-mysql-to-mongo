@@ -21,37 +21,51 @@ const mongoClient = new MongoClient(mongoURI, {
 });
 
 // Función principal
-async function syncData(req, res) {
-  let db;
+async function syncTableToMongo(mysqlTable, mongoCollection, db) {
   try {
-    console.log('Conectando a MongoDB...');
-    await mongoClient.connect();
-    db = mongoClient.db();
+    console.log(`Iniciando sincronización de ${mysqlTable} -> ${mongoCollection}`);
+    const [results] = await mysqlConnection.execute(`SELECT * FROM ${mysqlTable}`);
+    const collection = db.collection(mongoCollection);
 
-    console.log('Iniciando la sincronización...');
-    await syncTableToMongo('tb_banda', 'bandas', db);
-    await syncTableToMongo('tb_clientes', 'clientes', db);
-    await syncTableToMongo('tb_controladores', 'controladores', db);
-    await syncTableToMongo('tb_registros', 'registros', db);
-    await syncTableToMongo('tb_relaciones', 'relaciones', db);
-    await syncTableToMongo('tb_roles', 'roles', db);
-    await syncTableToMongo('tb_sensor', 'sensores', db);
-    await syncTableToMongo('tb_usuarios', 'usuarios', db);
+    const batchSize = 100;
+    let batch = [];
 
-    console.log('Sincronización completa');
-    res.status(200).json({ message: 'Sincronización completa' });
-  } catch (err) {
-    console.error('Error al conectar a MongoDB o MySQL:', err);
-    res.status(500).json({ error: `Error al conectar a MongoDB o MySQL: ${err.message}` });
-  } finally {
-    try {
-      console.log('Cerrando conexión a MongoDB...');
-      await mongoClient.close();
-    } catch (closeErr) {
-      console.error('Error al cerrar la conexión de MongoDB:', closeErr);
+    for (let i = 0; i < results.length; i++) {
+      let row = results[i];
+      let filter = {};
+
+      // --- Corrección específica para tb_registros ---
+      if (mysqlTable === 'tb_registros') {
+        row.id_ = row.id;          // renombrar id a id_
+        delete row.id;             // eliminar el campo original
+        filter.id_ = row.id_;      // usar id_ como filtro
+      } else {
+        if (row.id_banda) filter.id_banda = row.id_banda;
+        if (row.id_cliente) filter.id_cliente = row.id_cliente;
+        if (row.id_control) filter.id_control = row.id_control;
+        if (row.id_registros) filter.id_registros = row.id_registros;
+        if (row.id_relaciones) filter.id_relaciones = row.id_relaciones;
+        if (row.id_sensor) filter.id_sensor = row.id_sensor;
+        if (row.id_rol) filter.id_rol = row.id_rol;
+        if (row.id_usuario) filter.id_usuario = row.id_usuario;
+      }
+
+      const update = { $set: row };
+      batch.push(collection.updateOne(filter, update, { upsert: true }));
+
+      if (batch.length >= batchSize || i === results.length - 1) {
+        await Promise.all(batch);
+        batch = [];
+        console.log(`Lote sincronizado para ${mongoCollection}`);
+      }
     }
+
+    console.log(`Sincronización completa para ${mongoCollection}`);
+  } catch (err) {
+    console.error(`Error al procesar ${mysqlTable}:`, err);
   }
 }
+
 
 // Función auxiliar
 async function syncTableToMongo(mysqlTable, mongoCollection, db) {
